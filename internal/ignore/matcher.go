@@ -9,9 +9,9 @@ import (
 
 // Matcher handles gitignore patterns and custom ignore rules.
 type Matcher struct {
-	rootDir         string
-	defaultIgnores  map[string]bool
-	gitignoreRules  []gitignoreRule
+	rootDir        string
+	defaultIgnores map[string]bool
+	gitignoreRules []gitignoreRule
 }
 
 type gitignoreRule struct {

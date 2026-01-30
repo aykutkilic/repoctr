@@ -36,7 +36,9 @@ jobs:
         run: go test -v ./...
 
       - name: Build binary
-        run: go build -o ${{ matrix.binary_name }} ./cmd/repo-ctr
+        run: |
+          VERSION="dev-$(git rev-parse --short HEAD)"
+          go build -ldflags="-X repoctr/internal/version.Version=${VERSION}" -o ${{ matrix.binary_name }} ./cmd/repo-ctr
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

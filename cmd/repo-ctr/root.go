@@ -54,4 +54,6 @@ func init() {
 	rootCmd.AddCommand(cli.NewInitCmd())
 	rootCmd.AddCommand(cli.NewIdentifyCmd())
 	rootCmd.AddCommand(cli.NewStatsCmd())
+	rootCmd.AddCommand(cli.NewVersionCmd())
+	rootCmd.AddCommand(cli.NewUpdateCmd())
 }

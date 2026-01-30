@@ -45,7 +45,8 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
         run: |
-          go build -ldflags="-s -w" -o repo-ctr-${{ matrix.suffix }} ./cmd/repo-ctr
+          VERSION=${GITHUB_REF#refs/tags/}
+          go build -ldflags="-s -w -X repoctr/internal/version.Version=${VERSION}" -o repo-ctr-${{ matrix.suffix }} ./cmd/repo-ctr
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -66,6 +67,12 @@ jobs:
 
       - name: List artifacts
         run: ls -la artifacts/
+
+      - name: Generate checksums
+        run: |
+          cd artifacts
+          sha256sum repo-ctr-* > checksums.sha256
+          cat checksums.sha256
 
       - name: Create Release
         uses: softprops/action-gh-release@v2

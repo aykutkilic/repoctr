@@ -141,9 +141,9 @@ func determineFormat(machine bool, format string) OutputFormat {
 
 // StatsOutput represents the machine-readable stats output.
 type StatsOutput struct {
-	XMLName  xml.Name              `xml:"statistics" json:"-" yaml:"-"`
-	Projects []ProjectStatsOutput  `yaml:"projects" json:"projects" xml:"project"`
-	Totals   TotalsOutput          `yaml:"totals" json:"totals" xml:"totals"`
+	XMLName  xml.Name             `xml:"statistics" json:"-" yaml:"-"`
+	Projects []ProjectStatsOutput `yaml:"projects" json:"projects" xml:"project"`
+	Totals   TotalsOutput         `yaml:"totals" json:"totals" xml:"totals"`
 }
 
 // ProjectStatsOutput represents stats for a single project.
