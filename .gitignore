@@ -1,0 +1,26 @@
+# Binary (at root level only)
+/repo-ctr
+/repo-ctr.exe
+
+# Coverage
+coverage.out
+coverage.html
+
+# Generated config (for testing)
+projects.yaml
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Firebase
+firebase-debug.log
+
+# Claude Code
+.claude/
