@@ -50,9 +50,15 @@ cmd_test() {
 }
 
 cmd_install() {
-    print_step "Installing ${BINARY}..."
-    go install -ldflags "-s -w -X main.Version=${VERSION}" ./cmd/repo-ctr
-    echo -e "${GREEN}Installed to:${NC} $(go env GOPATH)/bin/${BINARY}"
+    print_step "Building ${BINARY}..."
+    go build -ldflags "-s -w -X main.Version=${VERSION}" -o "${BINARY}" ./cmd/repo-ctr
+
+    INSTALL_DIR="${HOME}/.local/bin"
+    mkdir -p "${INSTALL_DIR}"
+
+    print_step "Installing ${BINARY} to ${INSTALL_DIR}..."
+    cp "${BINARY}" "${INSTALL_DIR}/"
+    echo -e "${GREEN}Installed to:${NC} ${INSTALL_DIR}/${BINARY}"
 }
 
 cmd_clean() {

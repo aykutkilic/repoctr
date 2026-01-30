@@ -94,8 +94,8 @@ func (c *Counter) CountProject(project *models.Project) (*models.ProjectStats, e
 				return nil
 			}
 
-			// Skip non-source files
-			if !isSourceFile(path) {
+			// Skip non-source files (only count files for this project's runtime)
+			if !isSourceFile(path, project.Runtime.Type) {
 				return nil
 			}
 
@@ -202,44 +202,49 @@ func (c *Counter) addFileStats(projectStats *models.ProjectStats, fileStats *mod
 	projectStats.TotalSize += fileStats.Size
 }
 
-// isSourceFile checks if a file is a source code file based on extension.
-func isSourceFile(path string) bool {
-	ext := strings.ToLower(filepath.Ext(path))
-	sourceExts := map[string]bool{
-		// Go
+// sourceExtensionsByRuntime maps each RuntimeType to its language-specific source file extensions.
+// LOC is calculated only on source files relevant to the detected project type.
+var sourceExtensionsByRuntime = map[models.RuntimeType]map[string]bool{
+	models.RuntimeGo: {
 		".go": true,
-		// Python
+	},
+	models.RuntimePython: {
 		".py": true, ".pyw": true, ".pyi": true,
-		// JavaScript/TypeScript
-		".js": true, ".jsx": true, ".ts": true, ".tsx": true, ".mjs": true, ".cjs": true,
-		// Java
+	},
+	models.RuntimeJavaScript: {
+		".js": true, ".jsx": true, ".mjs": true, ".cjs": true,
+	},
+	models.RuntimeTypeScript: {
+		".ts": true, ".tsx": true, ".js": true, ".jsx": true, ".mjs": true, ".cjs": true,
+	},
+	models.RuntimeJava: {
 		".java": true, ".kt": true, ".kts": true, ".scala": true,
-		// C/C++
+	},
+	models.RuntimeDotNet: {
+		".cs": true, ".fs": true, ".vb": true,
+	},
+	models.RuntimeRust: {
+		".rs": true,
+	},
+	models.RuntimeDart: {
+		".dart": true,
+	},
+	models.RuntimeCpp: {
 		".c": true, ".h": true, ".cpp": true, ".cc": true, ".cxx": true,
 		".hpp": true, ".hh": true, ".hxx": true,
-		// C#
-		".cs": true, ".fs": true, ".vb": true,
-		// Rust
-		".rs": true,
-		// Dart
-		".dart": true,
-		// Ruby
-		".rb": true, ".rake": true,
-		// PHP
-		".php": true,
-		// Swift
-		".swift": true,
-		// Objective-C
-		".m": true, ".mm": true,
-		// Shell
-		".sh": true, ".bash": true, ".zsh": true,
-		// Config/Data
-		".json": true, ".yaml": true, ".yml": true, ".toml": true,
-		".xml": true, ".html": true, ".css": true, ".scss": true, ".less": true,
-		// SQL
-		".sql": true,
-		// Markdown
-		".md": true, ".markdown": true,
+	},
+}
+
+// isSourceFile checks if a file is a source code file for the given runtime type.
+func isSourceFile(path string, runtimeType models.RuntimeType) bool {
+	ext := strings.ToLower(filepath.Ext(path))
+
+	// Get extensions for the specific runtime
+	if exts, ok := sourceExtensionsByRuntime[runtimeType]; ok {
+		return exts[ext]
 	}
-	return sourceExts[ext]
+
+	// Fallback: if runtime type is unknown, accept no files
+	// This ensures we don't accidentally count unrelated files
+	return false
 }
