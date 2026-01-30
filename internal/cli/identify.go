@@ -24,7 +24,7 @@ Detects projects based on manifest files (go.mod, package.json, etc.).
 Builds a hierarchical project tree and outputs to projects.yaml.`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runIdentify(args, outputFile)
+			return RunIdentify(args, outputFile)
 		},
 	}
 
@@ -33,7 +33,8 @@ Builds a hierarchical project tree and outputs to projects.yaml.`,
 	return cmd
 }
 
-func runIdentify(paths []string, outputFile string) error {
+// RunIdentify discovers projects in the given paths and writes to outputFile.
+func RunIdentify(paths []string, outputFile string) error {
 	registry := detector.NewRegistry()
 	builder := discovery.NewHierarchyBuilder()
 

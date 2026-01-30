@@ -23,27 +23,44 @@ type gitignoreRule struct {
 
 // DefaultIgnorePatterns contains patterns that should always be ignored.
 var DefaultIgnorePatterns = []string{
+	// Version control
 	".git",
 	".svn",
 	".hg",
+	// Dependencies/packages
 	"node_modules",
 	"vendor",
+	// Python build/cache
 	"__pycache__",
 	".tox",
 	".nox",
+	".eggs",
+	"*.egg-info",
+	"__pypackages__",
+	// Python virtual environments (various naming conventions)
 	"venv",
 	".venv",
 	"env",
 	".env",
+	"ENV",
+	"virtualenv",
+	".virtualenv",
+	"pythonenv",
+	".pythonenv",
+	".conda",
+	// Build outputs
 	"target",
 	"build",
 	"dist",
 	".gradle",
+	// IDE/editor
 	".idea",
 	".vscode",
 	".vs",
+	// Compiled outputs
 	"bin",
 	"obj",
+	// OS files
 	".DS_Store",
 	"Thumbs.db",
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -37,8 +38,20 @@ If projects.yaml exists, running 'repo-ctr' without arguments shows stats.`,
 			return cli.RunStats(projectsFileName, false, "")
 		}
 
-		// Otherwise show help
-		return cmd.Help()
+		// Auto-discover projects and show stats
+		fmt.Println("No projects.yaml found. Auto-discovering projects...")
+		if err := cli.RunIdentify([]string{"."}, projectsFileName); err != nil {
+			return err
+		}
+
+		// Check if any projects were discovered (projects.yaml should exist now)
+		if _, err := os.Stat(projectsFileName); err != nil {
+			fmt.Println("\nNo projects discovered. Use 'repo-ctr identify <path>' to scan a specific directory.")
+			return nil
+		}
+
+		fmt.Println()
+		return cli.RunStats(projectsFileName, false, "")
 	},
 }
 
