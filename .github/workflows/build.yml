@@ -36,6 +36,7 @@ jobs:
         run: go test -v ./...
 
       - name: Build binary
+        shell: bash
         run: |
           VERSION="dev-$(git rev-parse --short HEAD)"
           go build -ldflags="-X repoctr/internal/version.Version=${VERSION}" -o ${{ matrix.binary_name }} ./cmd/repo-ctr
