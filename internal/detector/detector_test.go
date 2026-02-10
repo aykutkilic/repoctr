@@ -212,6 +212,92 @@ func TestJavaDetector_Maven(t *testing.T) {
 	}
 }
 
+func TestDotNetDetector_SlnWithCsproj(t *testing.T) {
+	d := NewDotNetDetector()
+
+	content := `Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MyApp", "MyApp\MyApp.csproj", "{GUID}"
+EndProject`
+
+	project, err := d.Detect("dir/MyApp.sln", []byte(content))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if project == nil {
+		t.Fatal("expected project, got nil")
+	}
+	if project.Runtime.Type != models.RuntimeDotNet {
+		t.Errorf("type = %q, want %q", project.Runtime.Type, models.RuntimeDotNet)
+	}
+}
+
+func TestDotNetDetector_SlnWithVcxprojOnly(t *testing.T) {
+	d := NewDotNetDetector()
+
+	// A .sln that only references .vcxproj (C++ project) should NOT be detected as .NET
+	content := `Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MyCppApp", "MyCppApp\MyCppApp.vcxproj", "{GUID}"
+EndProject`
+
+	project, err := d.Detect("dir/MyCppApp.sln", []byte(content))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if project != nil {
+		t.Errorf("expected nil for C++ .sln, got project with runtime %q", project.Runtime.Type)
+	}
+}
+
+func TestCppDetector_Vcxproj(t *testing.T) {
+	d := NewCppDetector()
+
+	content := `<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup Label="Globals">
+    <RootNamespace>SingeltonTest</RootNamespace>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <ItemGroup>
+    <ClCompile Include="main.cpp" />
+  </ItemGroup>
+</Project>`
+
+	project, err := d.Detect("dir/SingeltonTest.vcxproj", []byte(content))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if project == nil {
+		t.Fatal("expected project, got nil")
+	}
+	if project.Name != "SingeltonTest" {
+		t.Errorf("name = %q, want %q", project.Name, "SingeltonTest")
+	}
+	if project.Runtime.Type != models.RuntimeCpp {
+		t.Errorf("type = %q, want %q", project.Runtime.Type, models.RuntimeCpp)
+	}
+}
+
+func TestRegistry_CppSlnNotDotNet(t *testing.T) {
+	r := NewRegistry()
+
+	// When a .sln only references .vcxproj files, the registry should NOT detect it as .NET
+	content := `Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MyCpp", "MyCpp\MyCpp.vcxproj", "{GUID}"
+EndProject`
+
+	project, err := r.DetectProject("dir/MyCpp.sln", []byte(content))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// Should be nil since .sln is not a manifest for C++ detector (it uses .vcxproj directly)
+	if project != nil {
+		t.Errorf("expected nil for C++ .sln via registry, got runtime %q", project.Runtime.Type)
+	}
+}
+
 func TestRegistry(t *testing.T) {
 	r := NewRegistry()
 

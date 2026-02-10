@@ -23,19 +23,23 @@ func (d *cppDetector) RuntimeType() models.RuntimeType {
 }
 
 func (d *cppDetector) ManifestFiles() []string {
-	return []string{"CMakeLists.txt", "Makefile", "meson.build"}
+	return []string{"CMakeLists.txt", "Makefile", "meson.build", "*.vcxproj"}
 }
 
 func (d *cppDetector) Detect(manifestPath string, content []byte) (*models.Project, error) {
 	filename := filepath.Base(manifestPath)
 
-	switch filename {
-	case "CMakeLists.txt":
+	ext := strings.ToLower(filepath.Ext(manifestPath))
+
+	switch {
+	case filename == "CMakeLists.txt":
 		return d.detectCMake(manifestPath, content)
-	case "Makefile":
+	case filename == "Makefile":
 		return d.detectMakefile(manifestPath, content)
-	case "meson.build":
+	case filename == "meson.build":
 		return d.detectMeson(manifestPath, content)
+	case ext == ".vcxproj":
+		return d.detectVcxproj(manifestPath, content)
 	}
 
 	return nil, nil
@@ -137,6 +141,25 @@ func (d *cppDetector) detectMeson(manifestPath string, content []byte) (*models.
 	name := ""
 	projectRe := regexp.MustCompile(`project\s*\(\s*'([^']+)'`)
 	if matches := projectRe.FindStringSubmatch(contentStr); len(matches) > 1 {
+		name = matches[1]
+	}
+
+	return d.createProject(manifestPath, name, ""), nil
+}
+
+func (d *cppDetector) detectVcxproj(manifestPath string, content []byte) (*models.Project, error) {
+	contentStr := string(content)
+
+	// .vcxproj files are MSBuild XML for C/C++ projects.
+	// Check for C++ specific indicators.
+	if !strings.Contains(contentStr, "<ClCompile") && !strings.Contains(contentStr, "Microsoft.Cpp") {
+		return nil, nil
+	}
+
+	// Try to extract project name from RootNamespace or filename
+	name := ""
+	nameRe := regexp.MustCompile(`<RootNamespace>([^<]+)</RootNamespace>`)
+	if matches := nameRe.FindStringSubmatch(contentStr); len(matches) > 1 {
 		name = matches[1]
 	}
 

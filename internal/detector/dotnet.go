@@ -83,8 +83,20 @@ func (d *dotNetDetector) detectProjectFile(manifestPath string, content []byte) 
 }
 
 func (d *dotNetDetector) detectSolutionFile(manifestPath string, content []byte) (*models.Project, error) {
+	contentStr := string(content)
+
 	// .sln files are text-based, check for Visual Studio signature
-	if !strings.Contains(string(content), "Microsoft Visual Studio") {
+	if !strings.Contains(contentStr, "Microsoft Visual Studio") {
+		return nil, nil
+	}
+
+	// Verify the solution references at least one .NET project file.
+	// .sln files are shared between .NET and C++ (vcxproj) projects,
+	// so we must check for actual .NET project references.
+	hasDotNetProject := strings.Contains(contentStr, ".csproj") ||
+		strings.Contains(contentStr, ".fsproj") ||
+		strings.Contains(contentStr, ".vbproj")
+	if !hasDotNetProject {
 		return nil, nil
 	}
 

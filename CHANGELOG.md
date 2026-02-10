@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-02-10
+
+### Fixed
+- `.sln` detection: distinguish C++ `.vcxproj` projects from .NET projects
+  - .NET detector now verifies `.sln` references `.csproj`/`.fsproj`/`.vbproj` before claiming it
+  - C++ detector gains `.vcxproj` support with content-based validation
+
+## [0.4.0] - 2026-02-10
+
+### Added
+- File/folder exclusion with gitignore-style patterns
+  - Split config: `projects.yaml` (auto-generated) + `.repoctrconfig.yaml` (user-editable)
+  - Global and project-specific exclusion patterns
+  - Layered exclusion priority with pattern matching
+- `repo-ctr config` command group
+  - `config init` — create a `.repoctrconfig.yaml` template
+  - `config add-exclude` — add a global exclusion pattern
+  - `config show` — display current configuration
+- `repo-ctr stats --project/-p <name>` — show stats for a single project
+- `repo-ctr stats --all-files/-a` — list all files instead of top 5
+- Runtime emoji mapping for project headers in stats output
+
+### Enhancements
+- Matcher: `Clone()` and `AddPatterns()` for custom pattern layering
+- Counter: loads config and applies global + project-specific exclusions
+- Identify: non-destructive merge preserving user customizations on re-identify
+- File deduplication in stats counting
+- Backward compatible with existing `src-ignore-paths`
+
+## [0.3.0] - 2026-01-30
+
+### Added
+- Auto-discover on first run: Running `repo-ctr` without arguments now auto-discovers projects if no `projects.yaml` exists
+- Expanded Python ignores: Added more virtual environment folder patterns (ENV, virtualenv, .conda, .eggs, etc.)
+
+## [0.2.0] - 2026-01-30
+
 ### Added
 - `repo-ctr version` command to display current version
 - `repo-ctr update` command for self-updating from GitHub releases
