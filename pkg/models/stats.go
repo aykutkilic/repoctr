@@ -19,5 +19,6 @@ type ProjectStats struct {
 	CodeLines    int
 	TotalSize    int64
 	LargestFiles []FileStats
+	AllFiles     []FileStats
 	Children     []*ProjectStats
 }

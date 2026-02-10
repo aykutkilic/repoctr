@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"repoctr/internal/emoji"
 	"repoctr/pkg/models"
 )
 
@@ -21,8 +22,13 @@ func NewReporter(w io.Writer) *Reporter {
 
 // Report outputs statistics for a list of project stats.
 func (r *Reporter) Report(stats []*models.ProjectStats) {
+	r.ReportWithOptions(stats, false)
+}
+
+// ReportWithOptions outputs statistics for a list of project stats with options.
+func (r *Reporter) ReportWithOptions(stats []*models.ProjectStats, allFiles bool) {
 	for _, s := range stats {
-		r.reportProject(s, 0)
+		r.reportProjectWithOptions(s, 0, allFiles)
 	}
 
 	// Print grand totals if multiple projects
@@ -40,13 +46,14 @@ func (r *Reporter) Report(stats []*models.ProjectStats) {
 	}
 }
 
-func (r *Reporter) reportProject(stats *models.ProjectStats, depth int) {
+func (r *Reporter) reportProjectWithOptions(stats *models.ProjectStats, depth int, allFiles bool) {
 	indent := strings.Repeat("  ", depth)
 	project := stats.Project
 
 	// Project header
 	r.printSeparator()
-	fmt.Fprintf(r.writer, "\n%s📁 %s (%s", indent, project.Name, project.Runtime.Type)
+	techEmoji := emoji.Map(project.Runtime.Type)
+	fmt.Fprintf(r.writer, "\n%s📁 %s %s (%s", indent, project.Name, techEmoji, project.Runtime.Type)
 	if project.Runtime.Version != "" {
 		fmt.Fprintf(r.writer, " %s", project.Runtime.Version)
 	}
@@ -62,10 +69,20 @@ func (r *Reporter) reportProject(stats *models.ProjectStats, depth int) {
 	fmt.Fprintf(r.writer, "%s   %-12s %s\n", indent, "Blank Lines:", fmt.Sprintf("%d", stats.BlankLines))
 	fmt.Fprintf(r.writer, "%s   %-12s %s\n", indent, "Total Size:", formatSize(stats.TotalSize))
 
-	// Top 5 largest files
-	if len(stats.LargestFiles) > 0 {
-		fmt.Fprintf(r.writer, "\n%s   Top %d largest files:\n", indent, len(stats.LargestFiles))
-		for i, f := range stats.LargestFiles {
+	// Files listing
+	var filesToShow []models.FileStats
+	var title string
+	if allFiles && len(stats.AllFiles) > 0 {
+		filesToShow = stats.AllFiles
+		title = fmt.Sprintf("All %d files:", len(stats.AllFiles))
+	} else if len(stats.LargestFiles) > 0 {
+		filesToShow = stats.LargestFiles
+		title = fmt.Sprintf("Top %d largest files:", len(stats.LargestFiles))
+	}
+
+	if len(filesToShow) > 0 {
+		fmt.Fprintf(r.writer, "\n%s   %s\n", indent, title)
+		for i, f := range filesToShow {
 			relPath, _ := filepath.Rel(project.Path, f.Path)
 			if relPath == "" {
 				relPath = filepath.Base(f.Path)
@@ -77,7 +94,7 @@ func (r *Reporter) reportProject(stats *models.ProjectStats, depth int) {
 	// Report children
 	for _, child := range stats.Children {
 		fmt.Fprintln(r.writer)
-		r.reportProject(child, depth+1)
+		r.reportProjectWithOptions(child, depth+1, allFiles)
 	}
 }
 

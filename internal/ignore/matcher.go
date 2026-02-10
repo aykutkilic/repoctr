@@ -9,9 +9,11 @@ import (
 
 // Matcher handles gitignore patterns and custom ignore rules.
 type Matcher struct {
-	rootDir        string
-	defaultIgnores map[string]bool
-	gitignoreRules []gitignoreRule
+	rootDir         string
+	defaultIgnores  map[string]bool
+	gitignoreRules  []gitignoreRule
+	customPatterns  []gitignoreRule
+	projectRootDir  string
 }
 
 type gitignoreRule struct {
@@ -178,6 +180,11 @@ func (m *Matcher) ShouldIgnore(path string) bool {
 		return true
 	}
 
+	// Check custom patterns
+	if m.matchCustomPatterns(relPath, isDir) {
+		return true
+	}
+
 	return false
 }
 
@@ -207,6 +214,11 @@ func (m *Matcher) ShouldIgnoreFile(path string) bool {
 
 	// Check gitignore rules
 	if m.matchGitignore(relPath, false) {
+		return true
+	}
+
+	// Check custom patterns
+	if m.matchCustomPatterns(relPath, false) {
 		return true
 	}
 
@@ -240,6 +252,90 @@ func (m *Matcher) matchGitignore(relPath string, isDir bool) bool {
 	}
 
 	return ignored
+}
+
+// matchCustomPatterns checks if a path matches any custom pattern.
+func (m *Matcher) matchCustomPatterns(relPath string, isDir bool) bool {
+	ignored := false
+
+	for _, rule := range m.customPatterns {
+		// Skip directory-only rules for files
+		if rule.dirOnly && !isDir {
+			continue
+		}
+
+		matched := false
+
+		if rule.anchored {
+			// Anchored patterns match from root
+			matched = matchPattern(rule.pattern, relPath)
+		} else {
+			// Non-anchored patterns match any path component
+			matched = matchPattern(rule.pattern, relPath) ||
+				matchPattern(rule.pattern, filepath.Base(relPath))
+		}
+
+		if matched {
+			ignored = !rule.negate
+		}
+	}
+
+	return ignored
+}
+
+// Clone creates a copy of the matcher for project-specific layering.
+// The clone shares the same default ignores but has independent gitignore
+// and custom pattern rules that can be extended.
+func (m *Matcher) Clone() *Matcher {
+	cloned := &Matcher{
+		rootDir:        m.rootDir,
+		defaultIgnores: m.defaultIgnores,
+		projectRootDir: m.rootDir,
+	}
+
+	// Deep copy gitignore rules
+	cloned.gitignoreRules = make([]gitignoreRule, len(m.gitignoreRules))
+	copy(cloned.gitignoreRules, m.gitignoreRules)
+
+	// Deep copy custom patterns
+	cloned.customPatterns = make([]gitignoreRule, len(m.customPatterns))
+	copy(cloned.customPatterns, m.customPatterns)
+
+	return cloned
+}
+
+// AddPatterns adds custom patterns to the matcher (like gitignore patterns).
+// Patterns should be in gitignore format.
+func (m *Matcher) AddPatterns(patterns []string) error {
+	for _, pattern := range patterns {
+		if pattern == "" {
+			continue
+		}
+
+		rule := gitignoreRule{}
+
+		// Check for negation
+		if strings.HasPrefix(pattern, "!") {
+			rule.negate = true
+			pattern = pattern[1:]
+		}
+
+		// Check for directory only
+		if strings.HasSuffix(pattern, "/") {
+			rule.dirOnly = true
+			pattern = strings.TrimSuffix(pattern, "/")
+		}
+
+		// Check if anchored (contains / not at end)
+		if strings.Contains(pattern, "/") {
+			rule.anchored = true
+		}
+
+		rule.pattern = pattern
+		m.customPatterns = append(m.customPatterns, rule)
+	}
+
+	return nil
 }
 
 // matchPattern performs simple glob matching.

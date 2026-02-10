@@ -35,7 +35,7 @@ If projects.yaml exists, running 'repo-ctr' without arguments shows stats.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// If projects.yaml exists, run stats by default
 		if _, err := os.Stat(projectsFileName); err == nil {
-			return cli.RunStats(projectsFileName, false, "")
+			return cli.RunStats(projectsFileName, false, "", "", false)
 		}
 
 		// Auto-discover projects and show stats
@@ -51,7 +51,7 @@ If projects.yaml exists, running 'repo-ctr' without arguments shows stats.`,
 		}
 
 		fmt.Println()
-		return cli.RunStats(projectsFileName, false, "")
+		return cli.RunStats(projectsFileName, false, "", "", false)
 	},
 }
 
@@ -67,6 +67,7 @@ func init() {
 	rootCmd.AddCommand(cli.NewInitCmd())
 	rootCmd.AddCommand(cli.NewIdentifyCmd())
 	rootCmd.AddCommand(cli.NewStatsCmd())
+	rootCmd.AddCommand(cli.NewConfigCmd())
 	rootCmd.AddCommand(cli.NewVersionCmd())
 	rootCmd.AddCommand(cli.NewUpdateCmd())
 }

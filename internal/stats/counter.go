@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	"repoctr/internal/config"
 	"repoctr/internal/ignore"
 	"repoctr/pkg/models"
 )
@@ -15,6 +16,7 @@ import (
 type Counter struct {
 	rootDir string
 	matcher *ignore.Matcher
+	config  *models.RepoCtrConfig
 }
 
 // NewCounter creates a new stats counter.
@@ -29,9 +31,16 @@ func NewCounter(rootDir string) (*Counter, error) {
 		return nil, err
 	}
 
+	// Load configuration (ignore errors if not present)
+	cfg, _ := config.LoadConfig(absRoot)
+	if cfg == nil {
+		cfg = &models.RepoCtrConfig{}
+	}
+
 	return &Counter{
 		rootDir: absRoot,
 		matcher: matcher,
+		config:  cfg,
 	}, nil
 }
 
@@ -45,9 +54,23 @@ func (c *Counter) CountProject(project *models.Project) (*models.ProjectStats, e
 	// Build the full project path
 	projectPath := filepath.Join(c.rootDir, project.Path)
 
-	// Track all file stats for finding largest
+	// Create a project-specific matcher by cloning the base matcher
+	projectMatcher := c.matcher.Clone()
+
+	// Apply global excludes from config
+	if c.config != nil && len(c.config.GlobalExcludes) > 0 {
+		projectMatcher.AddPatterns(c.config.GlobalExcludes)
+	}
+
+	// Apply project-specific exclude patterns
+	if len(project.ExcludePatterns) > 0 {
+		projectMatcher.AddPatterns(project.ExcludePatterns)
+	}
+
+	// Track all file stats for finding largest, and seen files to avoid duplicates
 	var allFiles []models.FileStats
 	folderSet := make(map[string]bool)
+	seenFiles := make(map[string]bool)
 
 	// Process each source path
 	for _, srcPath := range project.SourcePaths {
@@ -63,8 +86,12 @@ func (c *Counter) CountProject(project *models.Project) (*models.ProjectStats, e
 			// Single file
 			fileStats, err := c.countFile(fullPath)
 			if err == nil {
-				c.addFileStats(stats, fileStats)
-				allFiles = append(allFiles, *fileStats)
+				absPath, _ := filepath.Abs(fullPath)
+				if !seenFiles[absPath] {
+					seenFiles[absPath] = true
+					c.addFileStats(stats, fileStats)
+					allFiles = append(allFiles, *fileStats)
+				}
 			}
 			continue
 		}
@@ -80,14 +107,15 @@ func (c *Counter) CountProject(project *models.Project) (*models.ProjectStats, e
 
 			// Check if should be ignored
 			if d.IsDir() {
-				// Check against project-specific ignore paths
+				// Check against project-specific src-ignore-paths (legacy, simple prefix matching)
 				for _, ignorePath := range project.SrcIgnorePaths {
 					if relPath == ignorePath || strings.HasPrefix(relPath, ignorePath+string(filepath.Separator)) {
 						return filepath.SkipDir
 					}
 				}
 
-				if c.matcher.ShouldIgnore(path) {
+				// Use project matcher (includes global excludes + project exclude patterns)
+				if projectMatcher.ShouldIgnore(path) {
 					return filepath.SkipDir
 				}
 				folderSet[path] = true
@@ -99,10 +127,17 @@ func (c *Counter) CountProject(project *models.Project) (*models.ProjectStats, e
 				return nil
 			}
 
-			// Skip ignored files
-			if c.matcher.ShouldIgnoreFile(path) {
+			// Skip ignored files using project matcher
+			if projectMatcher.ShouldIgnoreFile(path) {
 				return nil
 			}
+
+			// Skip if file was already seen (deduplication)
+			absPath, _ := filepath.Abs(path)
+			if seenFiles[absPath] {
+				return nil
+			}
+			seenFiles[absPath] = true
 
 			fileStats, err := c.countFile(path)
 			if err == nil {
@@ -119,11 +154,15 @@ func (c *Counter) CountProject(project *models.Project) (*models.ProjectStats, e
 
 	stats.TotalFolders = len(folderSet)
 
-	// Find top 5 largest files
+	// Sort files by lines (descending)
 	sort.Slice(allFiles, func(i, j int) bool {
 		return allFiles[i].Lines > allFiles[j].Lines
 	})
 
+	// Store all files
+	stats.AllFiles = allFiles
+
+	// Get top 5 for LargestFiles
 	limit := 5
 	if len(allFiles) < limit {
 		limit = len(allFiles)

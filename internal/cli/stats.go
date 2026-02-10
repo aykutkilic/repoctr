@@ -30,16 +30,24 @@ func NewStatsCmd() *cobra.Command {
 	var inputFile string
 	var machine bool
 	var yamlOut, jsonOut, xmlOut, csvOut bool
+	var projectName string
+	var allFiles bool
 
 	cmd := &cobra.Command{
 		Use:   "stats",
 		Short: "Show LOC statistics for discovered projects",
 		Long: `Reads projects.yaml and calculates lines of code statistics.
 Shows total files, folders, lines, code lines, blank lines, and file sizes.
-Also displays the top 5 largest files per project.
+Displays the top 5 largest files per project by default.
 
 Use --machine to output in machine-readable format (default: yaml).
-Supported formats: --yaml, --json, --xml, --csv`,
+Supported formats: --yaml, --json, --xml, --csv
+
+Examples:
+  repo-ctr stats                 # All projects
+  repo-ctr stats -p myproject    # Single project
+  repo-ctr stats -a              # All projects with all files listed
+  repo-ctr stats -p lib -a       # Single project with all files`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			format := ""
 			if yamlOut {
@@ -51,7 +59,7 @@ Supported formats: --yaml, --json, --xml, --csv`,
 			} else if csvOut {
 				format = "csv"
 			}
-			return RunStats(inputFile, machine, format)
+			return RunStats(inputFile, machine, format, projectName, allFiles)
 		},
 	}
 
@@ -61,12 +69,14 @@ Supported formats: --yaml, --json, --xml, --csv`,
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output in JSON format")
 	cmd.Flags().BoolVar(&xmlOut, "xml", false, "Output in XML format")
 	cmd.Flags().BoolVar(&csvOut, "csv", false, "Output in CSV format")
+	cmd.Flags().StringVarP(&projectName, "project", "p", "", "Show stats for a single project by name")
+	cmd.Flags().BoolVarP(&allFiles, "all-files", "a", false, "List all files instead of top 5")
 
 	return cmd
 }
 
 // RunStats executes the stats command logic (exported for use by root command).
-func RunStats(inputFile string, machine bool, format string) error {
+func RunStats(inputFile string, machine bool, format string, projectName string, allFiles bool) error {
 	// Read projects.yaml
 	data, err := os.ReadFile(inputFile)
 	if err != nil {
@@ -98,8 +108,20 @@ func RunStats(inputFile string, machine bool, format string) error {
 		return fmt.Errorf("failed to create stats counter: %w", err)
 	}
 
-	// Calculate stats for all projects
-	projectStats, err := counter.CountHierarchy(config.Projects)
+	// Filter projects if --project is specified
+	var projectsToProcess []*models.Project
+	if projectName != "" {
+		found := findProjectByName(config.Projects, projectName)
+		if found == nil {
+			return fmt.Errorf("project '%s' not found", projectName)
+		}
+		projectsToProcess = []*models.Project{found}
+	} else {
+		projectsToProcess = config.Projects
+	}
+
+	// Calculate stats for projects
+	projectStats, err := counter.CountHierarchy(projectsToProcess)
 	if err != nil {
 		return fmt.Errorf("failed to calculate statistics: %w", err)
 	}
@@ -113,8 +135,21 @@ func RunStats(inputFile string, machine bool, format string) error {
 
 	// Human-readable output
 	reporter := stats.NewReporter(os.Stdout)
-	reporter.Report(projectStats)
+	reporter.ReportWithOptions(projectStats, allFiles)
 
+	return nil
+}
+
+// findProjectByName searches for a project by name in the project tree.
+func findProjectByName(projects []*models.Project, name string) *models.Project {
+	for _, p := range projects {
+		if p.Name == name {
+			return p
+		}
+		if found := findProjectByName(p.Children, name); found != nil {
+			return found
+		}
+	}
 	return nil
 }
 
